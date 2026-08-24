@@ -1,0 +1,9 @@
+services:
+  php:
+    image: php:8.3-apache
+    container_name: php-app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html
+    restart: unless-stopped
