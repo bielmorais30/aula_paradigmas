@@ -10,33 +10,49 @@ type Task struct {
 
 func main(){
 
-	
-
-	var title string
-	var aux string
-	var completed bool
-	
 	tasks := []Task{}
+	for {
+		
 
-	// tarefas := []Task{}
-	fmt.Print("Digite o titulo da tarefa:\n")
-	fmt.Scan(&title)
-	fmt.Print("\nEsta completada?: Sim ou Não  \n")
-	fmt.Scan(&aux)
+		var loop string
 
-	if aux == "Sim"{
-		completed = true
-	}else{
-		completed = false
+		var title string
+		var aux string
+		var completed bool
+		
+
+		// tarefas := []Task{}
+		fmt.Print("\nDeseja adicionar uma tarefa? Sim ? ")
+		fmt.Scan(&loop)
+
+		if loop != "Sim"{
+			break
+		}
+
+		fmt.Print("Digite o titulo da tarefa:\n")
+		fmt.Scan(&title)
+		fmt.Print("\nEsta completada?: Sim ou Não  \n")
+		fmt.Scan(&aux)
+
+		if aux == "Sim"{
+			completed = true
+		}else{
+			completed = false
+		}
+
+		tasks = append(tasks, Task{
+			Id: 1,
+			Title: title,
+			Completed: completed,
+		})
+
+		for _, task := range tasks {
+			
+			fmt.Println(task.Title, task.Completed)
+		}
+
+
+
 	}
-
-	tasks = append(tasks, Task{
-		Id: 1,
-		Title: title,
-		Completed: completed,
-	})
-
-	fmt.Println(tasks[0].Title, tasks[0].Completed)
-
 
 }
