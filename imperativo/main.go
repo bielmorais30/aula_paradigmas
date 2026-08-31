@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -34,165 +35,116 @@ func main() {
 			completed BOOLEAN NOT NULL
 		)
 	`)
-
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Rota /todos
+	// Rota /todos -> GET (listar) e POST (criar)
 	http.HandleFunc("/todos", func(w http.ResponseWriter, r *http.Request) {
 
-		// =========================
-		// GET /todos
-		// =========================
-		if r.Method == http.MethodGet {
+		switch r.Method {
 
-			rows, err := db.Query(`
-				SELECT id, title, completed
-				FROM task
-			`)
-
+		case http.MethodGet:
+			rows, err := db.Query(`SELECT id, title, completed FROM task`)
 			if err != nil {
-				http.Error(w, "Erro ao buscar tarefas", 500)
+				http.Error(w, "Erro ao buscar tarefas", http.StatusInternalServerError)
 				return
 			}
-
 			defer rows.Close()
 
 			var tasks []Task
-
 			for rows.Next() {
-
 				var task Task
-
-				err := rows.Scan(
-					&task.ID,
-					&task.Title,
-					&task.Completed,
-				)
-
-				if err != nil {
-					http.Error(w, "Erro ao ler tarefa", 500)
+				if err := rows.Scan(&task.ID, &task.Title, &task.Completed); err != nil {
+					http.Error(w, "Erro ao ler tarefa", http.StatusInternalServerError)
 					return
 				}
-
 				tasks = append(tasks, task)
 			}
 
 			w.Header().Set("Content-Type", "application/json")
-
 			json.NewEncoder(w).Encode(tasks)
 
-			return
-		}
-
-		// =========================
-		// POST /todos
-		// =========================
-		if r.Method == http.MethodPost {
-
+		case http.MethodPost:
 			var task Task
-
-			err := json.NewDecoder(r.Body).Decode(&task)
-
-			if err != nil {
-				http.Error(w, "JSON inválido", 400)
+			if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+				http.Error(w, "JSON inválido", http.StatusBadRequest)
 				return
 			}
 
-			result, err := db.Exec(`
-				INSERT INTO task (title, completed)
-				VALUES (?, ?)
-			`,
-				task.Title,
-				task.Completed,
+			result, err := db.Exec(
+				"INSERT INTO task (title, completed) VALUES (?, ?)",
+				task.Title, task.Completed,
 			)
-
 			if err != nil {
-				http.Error(w, "Erro ao criar tarefa", 500)
+				http.Error(w, "Erro ao criar tarefa", http.StatusInternalServerError)
 				return
 			}
 
 			id, err := result.LastInsertId()
-
 			if err != nil {
-				http.Error(w, "Erro ao obter ID", 500)
+				http.Error(w, "Erro ao obter ID", http.StatusInternalServerError)
 				return
 			}
-
 			task.ID = int(id)
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-
 			json.NewEncoder(w).Encode(task)
 
-			return
+		default:
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
-
-		// Método não permitido
-		http.Error(
-			w,
-			"Método não permitido",
-			http.StatusMethodNotAllowed,
-		)
 	})
 
-	// Rota DELETE /todos/{id}
+	// Rota /todos/{id} -> PATCH (completar) e DELETE (remover)
 	http.HandleFunc("/todos/", func(w http.ResponseWriter, r *http.Request) {
 
-		if r.Method != http.MethodDelete {
-			http.Error(
-				w,
-				"Método não permitido",
-				http.StatusMethodNotAllowed,
-			)
-			return
-		}
-
-		// Exemplo:
-		// /todos/10
 		path := strings.TrimPrefix(r.URL.Path, "/todos/")
-
 		id, err := strconv.Atoi(path)
-
 		if err != nil {
-			http.Error(w, "ID inválido", 400)
+			http.Error(w, "ID inválido", http.StatusBadRequest)
 			return
 		}
 
-		result, err := db.Exec(
-			"DELETE FROM task WHERE id = ?",
-			id,
-		)
+		switch r.Method {
 
-		if err != nil {
-			http.Error(w, "Erro ao deletar tarefa", 500)
-			return
+		case http.MethodPatch:
+			result, err := db.Exec("UPDATE task SET completed = ? WHERE id = ?", true, id)
+			if err != nil {
+				http.Error(w, "Erro ao atualizar tarefa", http.StatusInternalServerError)
+				return
+			}
+			rowsAffected, _ := result.RowsAffected()
+			if rowsAffected == 0 {
+				http.Error(w, "Tarefa não encontrada", http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+
+		case http.MethodDelete:
+			result, err := db.Exec("DELETE FROM task WHERE id = ?", id)
+			if err != nil {
+				http.Error(w, "Erro ao deletar tarefa", http.StatusInternalServerError)
+				return
+			}
+			rowsAffected, _ := result.RowsAffected()
+			if rowsAffected == 0 {
+				http.Error(w, "Tarefa não encontrada", http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		}
-
-		rowsAffected, err := result.RowsAffected()
-
-		if err != nil {
-			http.Error(w, "Erro ao verificar exclusão", 500)
-			return
-		}
-
-		if rowsAffected == 0 {
-			http.Error(w, "Tarefa não encontrada", 404)
-			return
-		}
-
-		w.WriteHeader(http.StatusNoContent)
 	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	log.Fatal(http.ListenAndServe(":"+port, nil))	
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.Println("Servidor rodando na porta " + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
