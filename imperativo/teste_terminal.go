@@ -1,10 +1,6 @@
 package main
 
-import (
-	"encoding/json"
-	"net/http"
-	"fmt"
-)
+import "fmt"
 
 type Task struct {
 	Id int
@@ -15,8 +11,8 @@ type Task struct {
 func main(){
 
 	tasks := []Task{}
+	for {
 		
-	
 
 		var loop string
 
@@ -29,16 +25,9 @@ func main(){
 		fmt.Print("\nDeseja adicionar uma tarefa? Sim ? ")
 		fmt.Scan(&loop)
 
-		http.HandleFunc("/post", func(w http.ResponseWriter, r *http.Request){
-			switch r.Method {
-			case http.MethodGet:
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode("teste")
-				
-			}
-		})
-
-	
+		if loop != "Sim"{
+			break
+		}
 
 		fmt.Print("Digite o titulo da tarefa:\n")
 		fmt.Scan(&title)
@@ -63,6 +52,7 @@ func main(){
 		}
 
 
-		http.ListenAndServe(":8080", nil)
+
+	}
 
 }
