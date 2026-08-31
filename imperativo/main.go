@@ -72,6 +72,13 @@ func main() {
 				return
 			}
 
+			if strings.TrimSpace(task.Title) == "" {
+				http.Error(w, "Título não pode ser vazio", http.StatusBadRequest)
+				return
+			}
+
+			task.Title = strings.TrimSpace(task.Title)
+
 			result, err := db.Exec(
 				"INSERT INTO task (title, completed) VALUES (?, ?)",
 				task.Title, task.Completed,
