@@ -186,9 +186,11 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	log.Println("Servidor rodando em http://localhost:8080")
-
-	err = http.ListenAndServe(":8080", nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Fatal(http.ListenAndServe(":"+port, nil))	
 
 	if err != nil {
 		log.Fatal(err)
